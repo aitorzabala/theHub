@@ -406,6 +406,86 @@ if(!class_exists(User)) {
 		
 		}
 		
+		function setLanguage() {
+			global $thdb;
+			global $conn;
+			if(!empty($_POST["pref_language"]) && !empty($_POST["userId"])){
+				
+				$_POST_CLEAN = $thdb->clean($_POST);
+
+				$userId = $_POST_CLEAN["userId"];
+				$pref_lang = $_POST_CLEAN["pref_language"];
+
+				$sql = 'SELECT 2letter FROM languages WHERE english_name = ?';
+				
+				$stm = $conn->prepare($sql);
+
+				$stm->execute(array($pref_lang));
+
+				$pref_lang_2let = NULL;
+
+				if(!($stm->execute())){
+					echo $stm->errorCode();
+					$meta = new BasicResponse();
+					$meta->success = false;
+					$meta->message = "There was an error finding the Language selected. Please try again";
+			
+					die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+				}else{
+					$pref_lang_2let = $stm->fetchColumn();
+				}
+
+				if(!empty($pref_lang_2let)){
+
+					$sql = 'INSERT INTO userlanguages (userId, 2letter) VALUES ( :userId , :2letter )';
+
+					$stm = $conn->prepare($sql);
+
+					$stm->bindParam(":userId", $userId);
+					$stm->bindParam(":2letter", $pref_lang_2let);
+
+					if(!($stm->execute())){
+						echo $stm->errorCode();
+						$meta = new BasicResponse();
+						$meta->success = false;
+						$meta->message = "There was an error inserting to the database. Please try again";
+				
+						die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+					}
+				}
+			}
+		}
+
+		function getLanguage() {
+			global $thdb;
+			global $conn;
+			if(!empty($_POST["userId"]) && !empty($_POST["searchUserLang"])){
+				$_POST_CLEAN = $thdb->clean($_POST);
+
+				$userId = $_POST_CLEAN["userId"];
+
+				$sql = 'SELECT 2letter FROM userlanguages WHERE userId = :userId';
+
+				$stm = $conn->prepare($sql);
+
+				$stm->bindParam(":userId", $userId);
+
+				if(!($stm->execute())){
+					echo $stm->errorCode();
+					$meta = new BasicResponse();
+					$meta->success = false;
+					$meta->message = "There was an error inserting to the database. Please try again";
+			
+					die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+				}
+
+				$languages = $stm -> fetchAll();
+				$data = array('userId' => $userId,'languages' => $languages );
+				return $data;
+
+			}
+		}
+		
 	}
 	
 	
