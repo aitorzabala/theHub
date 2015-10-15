@@ -485,6 +485,156 @@ if(!class_exists(User)) {
 
 			}
 		}
+		function setFavourite(){
+			global $thdb;
+			global $conn;
+			if (!empty($_POST["tutorId"])) {
+
+				//Grab our authorization cookie array
+				$cookie = $_COOKIE['theHub'];
+						
+				//Set our user and authID variables
+				$studentId = $cookie['user'];
+
+				$_POST_CLEAN = $thdb->clean($_POST);
+
+				$tutorId = $_POST_CLEAN["tutorId"];
+
+				$sql = 'SELECT 1 FROM favourites WHERE studentId = :studentId AND tutorId = :tutorId';
+
+				$stm = $conn->prepare($sql);
+
+				$stm->bindParam(":studentId", $studentId);
+				$stm->bindParam(":tutorId", $tutorId);
+
+				if(!($stm->execute())){
+					echo $stm->errorCode();
+					$meta = new BasicResponse();
+					$meta->success = false;
+					$meta->message = "There was an error Querying to the database. Please try again";
+			
+					die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+				}
+
+				if($stm->rowCount() != 0){
+					echo $stm->errorCode();
+					$meta = new BasicResponse();
+					$meta->success = false;
+					$meta->message = "User already favourited this tutor";
+			
+					die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+				}
+
+				$sql = 'INSERT INTO favourites(studentId, tutorId) VALUES (:studentId, :tutorId)';
+
+				$stm = $conn->prepare($sql);
+
+				$stm->bindParam(":studentId", $studentId);
+				$stm->bindParam(":tutorId", $tutorId);
+
+				if(!($stm->execute())){
+					echo $stm->errorCode();
+					$meta = new BasicResponse();
+					$meta->success = false;
+					$meta->message = "There was an error inserting to the database. Please try again";
+			
+					die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+				}
+
+				$meta = new BasicResponse();
+				$meta->success = true;
+				$meta->message = "Favourite was inserted correctly";
+			
+				die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+
+
+			}
+
+		}
+		function getFavourites(){
+			global $thdb;
+			global $conn;
+			if (!empty($_GET["tutorId"])) {
+
+				$studentId = $_GET["tutorId"];
+
+				$sql = 'SELECT tutorId FROM favourites WHERE studentId = :studentId';
+
+				$stm = $conn->prepare($sql);
+
+				$stm->bindParam(":studentId", $studentId);
+				
+
+				if(!($stm->execute())){
+					echo $stm->errorCode();
+					$meta = new BasicResponse();
+					$meta->success = false;
+					$meta->message = "There was an error Querying to the database. Please try again";
+			
+					die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+				}
+
+				$favourites = $stm -> fetchAll();
+
+				var_dump($favourites);
+				
+				foreach ($favourites as $k => $user) {
+					$favouritesClean[$k] = $user["tutorId"];
+				}
+
+				try {
+					
+					$querySql = implode(',', array_fill(  0 , count($favouritesClean) , '?' ));
+
+					$stm = $conn->prepare('SELECT * FROM users LEFT OUTER JOIN images USING (userId) WHERE userId IN (' . $querySql . ')');
+
+					foreach ($favouritesClean as $k => $fav){
+					    $stm->bindValue(($k+1), $fav);
+					}
+
+					if(!($stm->execute())){
+						echo $stm->errorCode();
+						$meta = new BasicResponse();
+						$meta->success = false;
+						$meta->message = "There was an error Querying to the database. Please try again";
+				
+						die(json_encode(array("meta"=>$meta), JSON_NUMERIC_CHECK));
+					}
+
+					$favouriteUsers = $stm -> fetchAll();
+					
+				
+					$meta = new BasicResponse();
+					$meta -> success = true;
+					$meta -> message = "Retreived Favourite users successfully";
+
+					$detailsArray = array();
+			
+					foreach ($favouriteUsers as $k => $user) {
+						
+						$image = new ImageResponse();
+						$image->imageName = $user[0]['imageName'];
+						$image->imageUrl = $user[0]['imageUrl'];
+						
+						$details = new UserResponse();
+						$details->userId = $user[0]['userId'];
+						$details->firstName = $user[0]['filename'];
+						$details->lastName = $user[0]['lastName'];
+						$details->email = $user[0]['email'];
+						$details->type = $user[0]['type'];
+						$details->image = $image;
+						$detailsArray[$k] = $details;
+						
+					}
+					die(json_encode(array("meta"=>$meta, "details"=>$detailsArray), JSON_NUMERIC_CHECK));
+				} catch (Exception $e) {
+					
+					echo $e->getMessage();
+					
+				}
+
+			}
+		}
 		
 	}
 	
